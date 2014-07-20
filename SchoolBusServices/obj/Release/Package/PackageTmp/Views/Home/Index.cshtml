@@ -1,0 +1,107 @@
+﻿@model List<SchoolBusServices.Models.GeoPoint>
+
+@{
+    ViewBag.Title = "Index";
+    var firstGeopoint = Model.LastOrDefault();
+    if(firstGeopoint != null){
+        ViewBag.TrackingName = firstGeopoint.TrackingName;
+        ViewBag.Lat = firstGeopoint.Lat;
+        ViewBag.Lon = firstGeopoint.Lon;
+    }
+}
+
+    <style>
+        html { height: 100% } 
+        body { height: 100%; margin: 5px; padding: 0px } 
+    </style>
+
+<h2 style="float: none;">SchoolBus Tracking: @ViewBag.TrackingName</h2>
+<hr />
+<div id="map_canvas" style="height:85%"></div>
+<hr />
+<span id="time"></span> 
+
+@section scripts { 
+    <script type="text/javascript"  src="http://maps.google.com/maps/api/js?sensor=false"></script> 
+    <script type="text/javascript">
+
+        $(function () {
+            var marks = [];
+            var flightPlanCoordinates = [];
+            
+            var lat = parseFloat(@ViewBag.Lat);
+            var lng = parseFloat(@ViewBag.Lon);
+            var latlng = new google.maps.LatLng(13.7695492, 100.6534790);
+            flightPlanCoordinates.push(latlng);
+            var options = {
+                center: latlng,
+                zoom: 20, center: latlng,
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            };
+            var map = new google.maps.Map(document.getElementById("map_canvas"), options);
+            var trackingName = "@ViewBag.TrackingName";
+            console.log(trackingName);
+            if (trackingName != "") {
+                var marker = new google.maps.Marker({
+                    position: latlng,
+                    map: map
+                });
+                marks.push(marker);
+            }
+
+            var flightPath = new google.maps.Polyline({
+                path: flightPlanCoordinates,
+                geodesic: true,
+                strokeColor: '#FF0000',
+                strokeOpacity: 1.0,
+                strokeWeight: 2
+            });
+
+            flightPath.setMap(map);
+
+            $('#time').text(new Date().toString());
+            setInterval(
+                function () {
+                    //console.log(new Date());
+                    $.ajax({
+                        url: '@Url.Action("GetLastGeopoint", new { trackingName = "nart"})',
+                        success: function (result) {
+                            //console.log(result);
+                            var lastGeopoint = result.lastGeopoint;
+                            if (lastGeopoint != null) {
+                                if (lastGeopoint.Lat.toFixed(7) != latlng.lat().toFixed(7)
+                                    && lastGeopoint.Lon.toFixed(7) != latlng.lng().toFixed(7)) {
+                                    //console.log(lastGeopoint);
+                                    var lat = parseFloat(lastGeopoint.Lat);
+                                    var lng = parseFloat(lastGeopoint.Lon);
+                                    latlng = new google.maps.LatLng(lat, lng);
+                                    var newMarker = new google.maps.Marker({
+                                        position: latlng,
+                                        map: map
+                                    });
+                                    flightPlanCoordinates.push(latlng);
+
+                                    flightPath.setMap(null);
+                                    flightPath = new google.maps.Polyline({
+                                        path: flightPlanCoordinates,
+                                        geodesic: true,
+                                        strokeColor: '#FF0000',
+                                        strokeOpacity: 1.0,
+                                        strokeWeight: 2
+                                    });
+
+                                    flightPath.setMap(map);
+
+                                    map.panTo(latlng);
+                                    marks.push(newMarker);
+
+                                }
+                            }
+                        }
+                    });
+                    $('#time').text(new Date().toString());
+                }, 5000);
+        });
+
+    </script> 
+} 
